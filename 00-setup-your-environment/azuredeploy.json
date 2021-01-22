@@ -14,10 +14,6 @@
             "defaultValue": "[concat('sclabc-', uniqueString(resourceGroup().id))]",
             "type": "string"
         },
-        "app_insights_workspace_name": {
-            "defaultValue": "[concat('sclab-ai-', uniqueString(resourceGroup().id))]",
-            "type": "string"
-        }, 
         "log_analytics_workspace_name": {
             "defaultValue": "[concat('sclab-la-', uniqueString(resourceGroup().id))]",
             "type": "string"
@@ -101,18 +97,6 @@
                     "name": "PerGB2018"
                 },
                 "retentionInDays": 30
-            }
-        },
-        {
-            "type": "Microsoft.Insights/components",
-            "apiVersion": "2015-05-01",
-            "name": "[parameters('app_insights_workspace_name')]",
-            "location": "[parameters('location')]",
-            "kind": "web",
-            "properties": {
-                "Application_Type": "web",
-                "Flow_Type": "Bluefield",
-                "Request_Source": "rest"
             }
         },
         {
