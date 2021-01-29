@@ -34,7 +34,9 @@ This training lab requires the following to be installed on your machine:
 
 * The Bash shell. While Azure CLI should behave identically on all environments, some shell semantics may need to be modified for use with other shells. To complete this training on Windows, use [Git Bash that accompanies the Windows distribution of Git](https://git-scm.com/download/win).
 
+
 * The `jq` utility. On Windows, download [this Windows port of JQ](https://github.com/stedolan/jq/releases) and add the following to the `~/.bashrc` file (create the file from scratch if it does not exist):
+
 
    ```bash
    alias jq=<JQ Download location>/jq-win64.exe
@@ -48,6 +50,5 @@ The environment variable `JAVA_HOME` should be set to the path of the JDK instal
 
 You can then use Visual Studio Code or an IDE of your choice.
 
----
 
 ➡️ Next guide: [01 - Create an Azure Spring Cloud instance](../01-create-an-azure-spring-cloud-instance/README.md)
