@@ -10,9 +10,10 @@ Build the simplest possible Spring Boot microservice, made with [https://start.s
 
 The microservice that we create in this guide is [available here](simple-microservice/).
 
-To create our microservice, we will use [https://start.spring.io/](https://start.spring.io/) via the command line.
+To create our microservice, we will use [https://start.spring.io/](https://start.spring.io/) via the command line and use the default settings that use com.example.demo package.
 
 >💡 __Note:__ All subsequent commands in this workshop should be run from the same directory, except where otherwise indicated via `cd` commands.
+
 
 ```bash
 curl https://start.spring.io/starter.tgz -d dependencies=web -d baseDir=simple-microservice -d bootVersion=2.3.8 -d javaVersion=1.8 | tar -xzvf -
@@ -23,6 +24,7 @@ curl https://start.spring.io/starter.tgz -d dependencies=web -d baseDir=simple-m
 ## Add a new Spring MVC Controller
 
 Expanding the newly created "simple-microservice" directory, create a new class called `HelloController` in `src/main/java/com/example/demo`, next to `DemoApplication` with the following content:
+
 
 ```java
 package com.example.demo;
@@ -102,6 +104,7 @@ Go to [the Azure portal](https://portal.azure.com/?WT.mc_id=azurespringcloud-git
 
 - Look for your Azure Spring Cloud instance in your resource group
 - Click "Apps" in the "Settings" section of the navigation pane and select "simple-microservice"
+- Click on "See more" if you dont see "Test Endpoint"
 - Mouse over the URL labeled as "Test Endpoint" and click the clipboard icon that appears.  This will give you something like:
    `https://primary:BBQM6nsYnmmdQREXQINityNx63kWUbjsP7SIvqKhOcWDfP6HJTqg27klMLaSfpTB@rwo1106f.test.azuremicroservices.io/simple-microservice/default/`
    Note the text between `https://` and `@`.  These are the basic authentication credentials, without which you will not be authorized to access the service.
