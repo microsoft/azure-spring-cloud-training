@@ -180,6 +180,181 @@ You can now use cURL to test the `/cities` endpoint, and it should give you the 
 
 If you need to check your code, the final project is available in the ["city-service" folder](city-service/).
 
+## Conclusion
+
+Congratulations, you have now deployed a service connecting to Microsoft Azure CosmosDB in your Azure Spring Cloud!
+
+Here is the final script to build and deploy everything that was done in this guide:
+
+```bash
+curl https://start.spring.io/starter.tgz -d dependencies=webflux,cloud-eureka,cloud-config-client -d baseDir=city-service -d bootVersion=2.3.1.RELEASE | tar -xzvf -
+cd city-service
+cat > pom.xml << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.1.RELEASE</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>demo</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>demo</name>
+    <description>Demo project for Spring Boot</description>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <spring-cloud.version>Hoxton.SR5</spring-cloud.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-cosmos</artifactId>
+            <version>4.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zipkin</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>\${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>cloud</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.microsoft.azure</groupId>
+                    <artifactId>spring-cloud-starter-azure-spring-cloud-client</artifactId>
+                    <version>2.2.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
+</project>
+EOF
+cat > City.java << EOF
+package com.example.demo;
+
+class City {
+
+    private String name;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+}
+EOF
+mv City.java src/main/java/com/example/demo/City.java
+cat > CityController.java << EOF
+package com.example.demo;
+
+import com.azure.cosmos.CosmosAsyncContainer;
+import com.azure.cosmos.CosmosClientBuilder;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+import com.azure.cosmos.models.FeedResponse;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+
+import javax.annotation.PostConstruct;
+import java.util.List;
+
+@RestController
+public class CityController {
+
+    @Value("\${azure.cosmosdb.uri}")
+    private String cosmosDbUrl;
+
+    @Value("\${azure.cosmosdb.key}")
+    private String cosmosDbKey;
+
+    @Value("\${azure.cosmosdb.database}")
+    private String cosmosDbDatabase;
+
+    private CosmosAsyncContainer container;
+
+    @PostConstruct
+    public void init() {
+        container = new CosmosClientBuilder()
+                .endpoint(cosmosDbUrl)
+                .key(cosmosDbKey)
+                .buildAsyncClient()
+                .getDatabase(cosmosDbDatabase)
+                .getContainer("City");
+    }
+
+    @GetMapping("/cities")
+    public Flux<List<City>> getCities() {
+        CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
+        return container.queryItems("SELECT TOP 20 * FROM City c", options, City.class)
+                .byPage()
+                .map(FeedResponse::getResults);
+    }
+}
+EOF
+mv CityController.java src/main/java/com/example/demo/CityController.java
+az spring-cloud app create -n city-service
+./mvnw clean package -DskipTests -Pcloud
+az spring-cloud app deploy -n city-service --jar-path target/demo-0.0.1-SNAPSHOT.jar
+cd ..
+```
+
 ---
 
 ⬅️ Previous guide: [05 - Build a Spring Boot microservice using Spring Cloud features](../05-build-a-spring-boot-microservice-using-spring-cloud-features/README.md)

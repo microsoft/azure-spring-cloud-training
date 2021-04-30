@@ -96,6 +96,44 @@ Once you have swapped deployments and see that `green` is active, you need to wa
 
 ![Green deployment](media/01-green-deployment.png)
 
+
+## Conclusion
+
+Here is the final script to change the application, deploy it to a "green" deployment and then promote it to the production deployment.
+
+```bash
+cd weather-service
+cat > src/main/java/com/example/demo/WeatherController.java << EOF
+package com.example.demo;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+
+@Controller
+@RequestMapping(path="/weather")
+public class WeatherController {
+
+    private final WeatherRepository weatherRepository;
+
+    public WeatherController(WeatherRepository weatherRepository) {
+        this.weatherRepository = weatherRepository;
+    }
+
+    @GetMapping("/city")
+    public @ResponseBody Weather getWeatherForCity(@RequestParam("name") String cityName) {
+        return weatherRepository.findById(cityName).map(weather -> {
+            weather.setDescription("It's always sunny on Azure Spring Cloud");
+            weather.setIcon("weather-sunny");
+            return weather;
+        }).get();
+    }
+}
+EOF
+./mvnw clean package -DskipTests -Pcloud
+az spring-cloud app deployment create --name green --app weather-service --jar-path target/demo-0.0.1-SNAPSHOT.jar
+az spring-cloud app set-deployment -n weather-service --deployment green
+cd ..
+```
 ---
 
 ⬅️ Previous guide: [09 - Putting it all together, a complete microservice stack](../09-putting-it-all-together-a-complete-microservice-stack/README.md)

@@ -139,7 +139,9 @@ Then, create a Spring Data repository to manage this entity, called `WeatherRepo
 package com.example.demo;
 
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface WeatherRepository extends CrudRepository<Weather, String> {
 }
 ```
@@ -211,6 +213,216 @@ You can now use cURL to test the `/weather/city` endpoint. For example, to test 
 ```
 
 If you need to check your code, the final project is available in the ["weather-service" folder](weather-service/).
+
+## Conclusion
+
+Congratulations, you have now deployed a service connecting to Microsoft Database for MySQL in your Azure Spring Cloud!
+
+Here is the final script to build and deploy everything that was done in this guide (you may need to edit in the MySQL password):
+
+```bash
+MYSQL_PASSWORD="super$ecr3t"
+# Obtain the info on the MYSQL server in our resource group:
+MYSQL_INFO=$(az mysql server list --query '[0]')
+MYSQL_SERVERNAME=$(echo $MYSQL_INFO | jq -r .name)
+MYSQL_USERNAME="$(echo $MYSQL_INFO | jq -r .administratorLogin)@${MYSQL_SERVERNAME}"
+MYSQL_HOST="$(echo $MYSQL_INFO | jq -r .fullyQualifiedDomainName)"
+
+# Create a firewall rule to allow connections from your machine:
+MY_IP=$(curl whatismyip.akamai.com 2>/dev/null)
+az mysql server firewall-rule create \
+    --server-name $MYSQL_SERVERNAME \
+    --name "connect-from-lab" \
+    --start-ip-address "$MY_IP" \
+    --end-ip-address "$MY_IP"
+
+# Create a firewall rule to allow connections from Azure services:
+az mysql server firewall-rule create \
+    --server-name $MYSQL_SERVERNAME \
+    --name "connect-from-azure" \
+    --start-ip-address "0.0.0.0" \
+    --end-ip-address "0.0.0.0"
+
+# Create a MySQL database
+az mysql db create \
+    --resource-group $AZ_RESOURCE_GROUP \
+    --name "azure-spring-cloud-training" \
+    --server-name $MYSQL_SERVERNAME
+az spring-cloud app create -n weather-service
+curl https://start.spring.io/starter.tgz -d dependencies=web,data-jpa,mysql,cloud-eureka,cloud-config-client -d baseDir=weather-service -d bootVersion=2.3.1.RELEASE | tar -xzvf -
+cd weather-service
+cat > pom.xml << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.1.RELEASE</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>demo</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>demo</name>
+    <description>Demo project for Spring Boot</description>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <spring-cloud.version>Hoxton.SR5</spring-cloud.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zipkin</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>\${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>cloud</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.microsoft.azure</groupId>
+                    <artifactId>spring-cloud-starter-azure-spring-cloud-client</artifactId>
+                    <version>2.2.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+</project>
+EOF
+cat > src/main/java/com/example/demo/Weather.java << EOF
+package com.example.demo;
+
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+public class Weather {
+
+    @Id
+    private String city;
+
+    private String description;
+
+    private String icon;
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getIcon() {
+        return icon;
+    }
+
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+}
+EOF
+cat > src/main/java/com/example/demo/WeatherRepository.java << EOF
+package com.example.demo;
+
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface WeatherRepository extends CrudRepository<Weather, String> {
+}
+EOF
+cat > src/main/java/com/example/demo/WeatherController.java << EOF
+package com.example.demo;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(path="/weather")
+public class WeatherController {
+
+    private final WeatherRepository weatherRepository;
+
+    public WeatherController(WeatherRepository weatherRepository) {
+        this.weatherRepository = weatherRepository;
+    }
+
+    @GetMapping("/city")
+    public @ResponseBody Weather getWeatherForCity(@RequestParam("name") String cityName) {
+        return weatherRepository.findById(cityName).get();
+    }
+}
+EOF
+echo "spring.jpa.hibernate.ddl-auto=create" >> src/main/resources/application.properties
+cat > src/main/resources/import.sql << EOF
+INSERT INTO \`azure-spring-cloud-training\`.\`weather\` (\`city\`, \`description\`, \`icon\`) VALUES ('Paris, France', 'Very cloudy!', 'weather-fog');
+INSERT INTO \`azure-spring-cloud-training\`.\`weather\` (\`city\`, \`description\`, \`icon\`) VALUES ('London, UK', 'Quite cloudy', 'weather-pouring');
+EOF
+./mvnw clean package -DskipTests -Pcloud
+az spring-cloud app deploy -n weather-service --jar-path target/demo-0.0.1-SNAPSHOT.jar
+cd ..
+```
 
 ---
 
